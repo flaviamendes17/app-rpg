@@ -1,24 +1,29 @@
 {
-  "cli": {
-  "version": ">= 5.0.0"
+  "name": "app-rpg",
+  "main": "index.js",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
   },
-  "build": {
-  "development": {
-  "developmentClient": true,
-  "distribution": "internal",
-  "android": {
-  "buildType": "apk"
-  }
+  "dependencies": {
+    "@expo/metro-runtime": "~3.2.3",
+    "@expo/vector-icons": "^14.0.2",
+    "expo": "~51.0.28",
+    "expo-sqlite": "~14.0.6",
+    "expo-status-bar": "~1.12.1",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native": "0.74.5",
+    "react-native-paper": "^5.12.3",
+    "react-native-safe-area-context": "4.10.5",
+    "react-native-vector-icons": "^10.0.3",
+    "react-native-web": "~0.19.10"
   },
-  "preview": {
-  "android": {
-  "buildType": "apk"
-}
-},
-"production": {
-"android": {
-"buildType": "apk"
-}
-}
-}
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  },
+  "private": true
 }

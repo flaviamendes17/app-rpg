@@ -1,16 +1,26 @@
 import React, { useState, useEffect } from "react";
 import {
   SafeAreaView,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
   FlatList,
   StyleSheet,
   Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { Provider as PaperProvider } from 'react-native-paper';
 import * as SQLite from "expo-sqlite";
+
+// Componentes
+import {
+  Header,
+  AddCharacterForm,
+  CharacterCard,
+  ConfirmationModal,
+  FeedbackSnackbar,
+  CharacterFilter
+} from './components';
+
+// Tema
+import theme from './theme';
 
 export default function App() {
   const [db, setDb] = useState(null);
@@ -20,6 +30,13 @@ export default function App() {
     { id: 3, name: "🏹 Legolas o Arqueiro", recruited: 0 }
   ]);
   const [newCharacter, setNewCharacter] = useState("");
+  const [filter, setFilter] = useState('all');
+  
+  // Estados para melhorias
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalData, setModalData] = useState({ title: '', message: '', action: null });
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   useEffect(() => {
     async function openDatabase() {
@@ -34,20 +51,48 @@ export default function App() {
     openDatabase();
   }, []);
 
+  const showSnackbar = (message) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  };
+
+  const showModal = (title, message, action) => {
+    setModalData({ title, message, action });
+    setModalVisible(true);
+  };
+
+  const hideModal = () => {
+    setModalVisible(false);
+    setModalData({ title: '', message: '', action: null });
+  };
+
   function addCharacter() {
-    if (newCharacter === "") return;
+    if (newCharacter === "") {
+      showSnackbar("⚠️ Digite um nome para o personagem!");
+      return;
+    }
     
-    const newId = characters.length + 1; 
-    const newCharacterObj = {
-      id: newId,
-      name: newCharacter,
-      recruited: 0 
+    const action = () => {
+      const newId = characters.length + 1; 
+      const newCharacterObj = {
+        id: newId,
+        name: newCharacter,
+        recruited: 0 
+      };
+      
+      const newList = [newCharacterObj]; 
+      const allCharacters = newList.concat(characters);
+      setCharacters(allCharacters); 
+      setNewCharacter(""); 
+      hideModal();
+      showSnackbar(`✨ ${newCharacter} foi adicionado à party!`);
     };
-    
-    const newList = [newCharacterObj]; 
-    const allCharacters = newList.concat(characters);
-    setCharacters(allCharacters); 
-    setNewCharacter(""); 
+
+    showModal(
+      "Adicionar Personagem",
+      `Deseja adicionar "${newCharacter}" à sua party?`,
+      action
+    );
   }
 
   function toggleRecruit(character) {
@@ -55,7 +100,6 @@ export default function App() {
     for (let i = 0; i < characters.length; i++) {
       const currentChar = characters[i];
       if (currentChar.id === character.id) {
-
         const newStatus = currentChar.recruited ? 0 : 1;
         newCharacters.push({
           id: currentChar.id,
@@ -63,160 +107,110 @@ export default function App() {
           recruited: newStatus
         });
       } else {
-  
         newCharacters.push(currentChar);
       }
     }
     setCharacters(newCharacters);
+    
+    const action = character.recruited ? "removido da party" : "recrutado";
+    const emoji = character.recruited ? "💤" : "⭐";
+    showSnackbar(`${emoji} ${character.name} foi ${action}!`);
   }
 
   function removeCharacter(character) {
-    Alert.alert("Remover Personagem", `Remover "${character.name}" da party?`, [
-      { text: "Não" },
-      {
-        text: "Sim",
-        onPress: () => {
-          const newList = [];
-          for (let i = 0; i < characters.length; i++) {
-            if (characters[i].id !== character.id) {
-              newList.push(characters[i]);
-            }
-          }
-          setCharacters(newList);
-        },
-      },
-    ]);
+    const action = () => {
+      const newList = [];
+      for (let i = 0; i < characters.length; i++) {
+        if (characters[i].id !== character.id) {
+          newList.push(characters[i]);
+        }
+      }
+      setCharacters(newList);
+      hideModal();
+      showSnackbar(`🗑️ ${character.name} foi removido da party!`);
+    };
+
+    showModal(
+      "Remover Personagem",
+      `Tem certeza que deseja remover "${character.name}" da party?`,
+      action
+    );
   }
+
+  const getFilteredCharacters = () => {
+    switch (filter) {
+      case 'recruited':
+        return characters.filter(char => char.recruited === 1);
+      case 'available':
+        return characters.filter(char => char.recruited === 0);
+      default:
+        return characters;
+    }
+  };
 
   function renderCharacter({ item }) {
     return (
-      <TouchableOpacity
-        style={[styles.character, item.recruited && styles.characterRecruited]}
-        onPress={() => toggleRecruit(item)}
-        onLongPress={() => removeCharacter(item)}
-      >
-        <Text style={[styles.characterText, item.recruited && styles.characterRecruitedText]}>
-          {item.name}
-        </Text>
-        <Text style={styles.status}>
-          {item.recruited ? "⭐" : "💤"}
-        </Text>
-      </TouchableOpacity>
+      <CharacterCard
+        character={item}
+        onToggleRecruit={toggleRecruit}
+        onRemoveCharacter={removeCharacter}
+      />
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
-      
-      <Text style={styles.title}>🏰 Minha Party RPG</Text>
-      <Text style={styles.subtitle}>⭐ Recrutado • 💤 Disponível • Segure para remover</Text>
-
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="🎭 Nome do novo personagem..."
-          value={newCharacter}
-          onChangeText={setNewCharacter}
-          onSubmitEditing={addCharacter}
+    <PaperProvider theme={theme}>
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="light" />
+        
+        <Header />
+        
+        <AddCharacterForm
+          newCharacter={newCharacter}
+          setNewCharacter={setNewCharacter}
+          onAddCharacter={addCharacter}
         />
-        <TouchableOpacity style={styles.button} onPress={addCharacter}>
-          <Text style={styles.buttonText}>⚔️</Text>
-        </TouchableOpacity>
-      </View>
 
-      <FlatList
-        data={characters}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={renderCharacter}
-        style={styles.list}
-      />
-    </SafeAreaView>
+        <CharacterFilter
+          filter={filter}
+          onFilterChange={setFilter}
+        />
+
+        <FlatList
+          data={getFilteredCharacters()}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderCharacter}
+          style={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+
+        <ConfirmationModal
+          visible={modalVisible}
+          title={modalData.title}
+          message={modalData.message}
+          onConfirm={modalData.action}
+          onCancel={hideModal}
+        />
+
+        <FeedbackSnackbar
+          visible={snackbarVisible}
+          message={snackbarMessage}
+          onDismiss={() => setSnackbarVisible(false)}
+        />
+      </SafeAreaView>
+    </PaperProvider>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1A0E0A", 
+    backgroundColor: "#0D2A0F", // Verde escuro para o fundo
     paddingTop: 50, 
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 8,
-    color: "#E69A28", 
-  },
-  subtitle: {
-    fontSize: 12,
-    textAlign: "center",
-    marginBottom: 20,
-    color: "#C5282F", 
-  },
-  inputRow: {
-    flexDirection: "row",
-    marginBottom: 20,
-  },
-  input: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: "#E69A28", 
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: "#F4E4BC", 
-    color: "#1A0E0A",
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: "#C5282F", 
-    padding: 12,
-    borderRadius: 8,
-    marginLeft: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    width: 50,
-    borderWidth: 2,
-    borderColor: "#E69A28", 
-  },
-  buttonText: {
-    color: "#E69A28", 
-    fontSize: 18,
-    fontWeight: "bold",
-  },
   list: {
     flex: 1,
-  },
-  character: {
-    backgroundColor: "#2C1810", 
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#58180D", 
-  },
-  characterRecruited: {
-    backgroundColor: "#58180D", 
-    borderColor: "#E69A28", 
-    borderWidth: 2,
-  },
-  characterText: {
-    flex: 1,
-    fontSize: 16,
-    color: "#F4E4BC", 
-    fontWeight: "500",
-  },
-  characterRecruitedText: {
-    color: "#E69A28", 
-    fontWeight: "bold",
-  },
-  status: {
-    fontSize: 20,
-    marginLeft: 10,
   },
 });
